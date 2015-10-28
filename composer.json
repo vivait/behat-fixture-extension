@@ -1,5 +1,5 @@
 {
-    "name": "vivait/behat-fixtures-extension",
+    "name": "vivait/behat-fixture-extension",
     "description": "An extension to KNP friendly fixtures bundle allowing for fast fixture loading",
     "license": "MIT",
     "authors": [
