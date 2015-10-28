@@ -1,0 +1,23 @@
+{
+    "name": "vivait/behat-fixtures-extension",
+    "description": "An extension to KNP friendly fixtures bundle allowing for fast fixture loading",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Lewis Wright",
+            "email": "lewis@vivait.co.uk"
+        }
+    ],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "require": {
+        "php": ">=5.3",
+        "behat/behat": "~3.0",
+        "knplabs/friendly-contexts": "~0.5"
+    },
+    "autoload": {
+        "psr-0": {
+            "Vivait\\ScrutinizerFormatterExtension\\": "src/"
+        }
+    }
+}
