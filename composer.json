@@ -13,7 +13,7 @@
     "require": {
         "php": ">=5.3",
         "behat/behat": "~3.0",
-        "knplabs/friendly-contexts": "dev-master"
+        "knplabs/friendly-contexts": "~0.5"
     },
     "autoload": {
         "psr-0": {
