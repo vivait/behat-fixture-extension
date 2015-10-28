@@ -1,0 +1,9 @@
+services:
+
+    friendly.alice.loader.yaml:
+        class: Vivait\FixtureExtension\Loader\Yaml
+        arguments:
+            - %friendly.alice.locale%
+            - @friendly.alice.provider_resolver
+            - %vivait_fixtures.cache_sql%
+        scope: prototype
