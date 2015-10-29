@@ -18,14 +18,8 @@ class Yaml extends BaseLoader
      */
     private $entityManager;
 
-    /**
-     * @var bool
-     */
-    private $use_cache;
-
-    public function __construct($locale, ProviderResolver $providers, $use_cache = true)
+    public function __construct($locale, ProviderResolver $providers)
     {
-        $this->use_cache = $use_cache;
         parent::__construct($locale, $providers->all());
     }
 
