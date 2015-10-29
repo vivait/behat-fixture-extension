@@ -1,13 +1,9 @@
 <?php
 namespace Vivait\FixtureExtension\Context;
-use Doctrine\Common\Cache\ClearableCache;
-use Doctrine\Common\DataFixtures\Purger\ORMPurger;
-use Doctrine\DBAL\Platforms\MySqlPlatform;
+
 use Doctrine\ORM\EntityManager;
-use Doctrine\ORM\Tools\SchemaTool;
 use Knp\FriendlyContexts\Context\AliceContext;
 use Knp\FriendlyContexts\Record\Collection\Bag;
-use Symfony\Bridge\Doctrine\RegistryInterface;
 use Vivait\FixtureExtension\Loader\Yaml;
 use Vivait\FixtureExtension\Logger\FixtureCacheLogger;
 

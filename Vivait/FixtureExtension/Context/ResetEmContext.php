@@ -1,17 +1,15 @@
 <?php
 namespace Vivait\FixtureExtension\Context;
+
 use Doctrine\Common\Cache\ClearableCache;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
+use Doctrine\Common\Persistence\AbstractManagerRegistry;
 use Doctrine\DBAL\Platforms\MySqlPlatform;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\Tools\SchemaTool;
-use Knp\FriendlyContexts\Context\AliceContext;
-use Knp\FriendlyContexts\Record\Collection\Bag;
-use Symfony\Bridge\Doctrine\RegistryInterface;
-use Vivait\FixtureExtension\Loader\Yaml;
-use Vivait\FixtureExtension\Logger\FixtureCacheLogger;
+use Knp\FriendlyContexts\Context\Context;
 
-class ResetEmContext extends AliceContext
+class ResetEmContext extends Context
 {
     private $purger;
     private static $hasSchema = false;
@@ -29,7 +27,7 @@ class ResetEmContext extends AliceContext
         $this->storeTags($event);
 
         if ($this->hasTags(['reset-em', '~not-reset-em'])) {
-            /** @var RegistryInterface $doctrine */
+            /** @var AbstractManagerRegistry $doctrine */
             $doctrine = $this->get('doctrine');
             $emTags = $this->getTagContent('reset-em') ?: ['default'];
 
