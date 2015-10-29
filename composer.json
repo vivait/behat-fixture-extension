@@ -13,7 +13,8 @@
     "require": {
         "php": ">=5.3",
         "behat/behat": "~3.0",
-        "knplabs/friendly-contexts": "~0.5"
+        "knplabs/friendly-contexts": "~0.5",
+        "doctrine/orm": "~2.3"
     },
     "autoload": {
         "psr-0": {
