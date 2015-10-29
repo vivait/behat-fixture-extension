@@ -11,99 +11,9 @@ use Symfony\Bridge\Doctrine\RegistryInterface;
 use Vivait\FixtureExtension\Loader\Yaml;
 use Vivait\FixtureExtension\Logger\FixtureCacheLogger;
 
-class FixturesContext extends AliceContext
+class FixtureContext extends AliceContext
 {
-    private $purger;
-    private $useCache = true;
-    private static $hasSchema = false;
     private static $fixtureCache = [];
-
-    function __construct(ORMPurger $purger = null)
-    {
-        $this->purger = $purger ?: new ORMPurger();
-    }
-
-    /**
-     * @BeforeScenario
-     */
-    public function beforeScenario($event)
-    {
-        $this->storeTags($event);
-
-        if ($this->hasTags(['reset-em', '~not-reset-em'])) {
-            /** @var RegistryInterface $doctrine */
-            $doctrine = $this->get('doctrine');
-            $emTags = $this->getTagContent('reset-em') ?: ['default'];
-
-            foreach ($emTags as $entityManager) {
-                /** @var EntityManager $entityManager */
-                $entityManager = $doctrine->getManager($entityManager);
-//                var_dump(spl_object_hash($entityManager));
-
-                $this->preparePurger($entityManager);
-
-//                $entityManager->transactional(function() {
-                    $this->purger->purge();
-//                });
-
-                $this->resetPurger($entityManager);
-            }
-        }
-    }
-
-    protected function getMetadata(EntityManager $entityManager)
-    {
-        return $entityManager->getMetadataFactory()->getAllMetadata();
-    }
-
-    /**
-     * Enable/disable foreign key checks on the MySQL platform
-     *
-     * @param EntityManager $entityManager
-     * @param bool $bool
-     * @throws \Doctrine\DBAL\DBALException
-     */
-    private function setForeignKeyChecks(EntityManager $entityManager, $bool)
-    {
-        $connection = $entityManager->getConnection();
-        $platform = $connection->getDatabasePlatform();
-
-        if ($platform instanceof MySqlPlatform) {
-            $connection->query(sprintf('SET FOREIGN_KEY_CHECKS=%s', (int) $bool));
-        }
-    }
-
-    /**
-     * @param $entityManager
-     * @return array
-     */
-    private function preparePurger(EntityManager $entityManager)
-    {
-        $this->setForeignKeyChecks($entityManager, false);
-
-        if (!self::$hasSchema) {
-            $tool = new SchemaTool($entityManager);
-            $metadata = $this->getMetadata($entityManager);
-            $tool->updateSchema($metadata, true);
-            self::$hasSchema = true;
-        }
-
-        $this->purger->setEntityManager($entityManager);
-        $this->purger->setPurgeMode(ORMPurger::PURGE_MODE_TRUNCATE);
-
-        return $this->purger;
-    }
-
-    private function resetPurger(EntityManager $entityManager) {
-        $this->setForeignKeyChecks($entityManager, true);
-
-        /** @var ClearableCache $cacheDriver */
-        $cacheDriver = $entityManager->getConfiguration()->getResultCacheImpl();
-
-        if ($cacheDriver) {
-            $cacheDriver->deleteAll();
-        }
-    }
 
     /**
      * @param Yaml $loader
@@ -131,6 +41,8 @@ class FixturesContext extends AliceContext
 
             if (!$useCache) {
                 $this->loadFixture($loader, $fixture);
+
+                $loader->addObjectsToCache(self::$fixtureCache[$id]['objects']);
             }
             else if (isset(self::$fixtureCache[$id])) {
                 // Reload the caches
@@ -139,9 +51,6 @@ class FixturesContext extends AliceContext
 
                 $this->runCachedSQL($id);
             } else {
-//                var_dump('Cache miss for: ' . $id);
-//                var_dump(array_keys(self::$fixtureCache));
-
                 $logger = new FixtureCacheLogger(
                     $connection->getDatabasePlatform(),
                     array(
@@ -166,15 +75,11 @@ class FixturesContext extends AliceContext
                         'sql' => $logger->queries
                     ];
                 } finally {
-//                    var_dump('Resetting logger');
                     $configuration->setSQLLogger($oldLogger);
                 }
             }
         }
-//        var_dump(spl_object_hash($entityManager));
 
-//        var_dump($configuration->getResultCacheImpl());exit;
-//        ->getManager()->getConfiguration()->getResultCacheImpl()->delete('YOURKEY')
         $entityManager->clear();
     }
 
@@ -183,6 +88,8 @@ class FixturesContext extends AliceContext
      */
     protected function registerCache($loader)
     {
+        $useCache = $this->getParameter('vivait_fixtures.cache_sql') ? true : false;
+
         foreach ($loader->getCache() as $entity) {
             $reflection = new \ReflectionObject($entity);
 
@@ -198,6 +105,10 @@ class FixturesContext extends AliceContext
                 $reflection = $reflection->getParentClass();
             } while (false !== $reflection);
         }
+
+        if (!$useCache) {
+            $loader->clearCache();
+        }
     }
 
     /**
@@ -211,19 +122,9 @@ class FixturesContext extends AliceContext
         $connection = $entityManager
             ->getConnection();
 
-//                var_dump('Using cache');
-//                    $entityManager->transactional(function() use ($id, $connection) {
-//                    var_dump($id);
-        try {
-            foreach (self::$fixtureCache[$id]['sql'] as $cache) {
-                $connection->prepare($cache['sql'])
-                           ->execute($cache['params']);
-            }
-        } catch (\Exception $e) {
-            var_dump($cache['sql']);
-            var_dump($cache['params']);
-
-            throw $e;
+        foreach (self::$fixtureCache[$id]['sql'] as $cache) {
+            $connection->prepare($cache['sql'])
+                       ->execute($cache['params']);
         }
     }
 
