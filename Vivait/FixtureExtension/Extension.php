@@ -19,7 +19,10 @@ class Extension implements ExtensionInterface
 
     public function load(ContainerBuilder $container, array $config)
     {
-        $container->addCompilerPass(new LoaderCompilerPass());
+        if ($config['cache_sql']) {
+            $container->addCompilerPass(new LoaderCompilerPass());
+        }
+
         $container->setParameter('vivait_fixtures.cache_sql', $config['cache_sql']);
     }
 

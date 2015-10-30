@@ -19,6 +19,11 @@ class FixtureContext extends AliceContext
      */
     protected function loadFixtures($loader, $fixtures, $files)
     {
+        if (!$this->getParameter('vivait_fixtures.cache_sql')) {
+            parent::loadFixtures($loader, $fixtures, $files);
+            return;
+        }
+
         /** @var EntityManager $entityManager */
         $entityManager = $this->getEntityManager();
         $connection = $entityManager
@@ -84,7 +89,10 @@ class FixtureContext extends AliceContext
      */
     protected function registerCache($loader)
     {
-        $useCache = $this->getParameter('vivait_fixtures.cache_sql') ? true : false;
+        if (!$this->getParameter('vivait_fixtures.cache_sql')) {
+            parent::registerCache($loader);
+            return;
+        }
 
         foreach ($loader->getCache() as $entity) {
             $reflection = new \ReflectionObject($entity);
@@ -100,10 +108,6 @@ class FixtureContext extends AliceContext
                 ;
                 $reflection = $reflection->getParentClass();
             } while (false !== $reflection);
-        }
-
-        if (!$useCache) {
-            $loader->clearCache();
         }
     }
 

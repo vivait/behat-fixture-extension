@@ -25,15 +25,11 @@ class Yaml extends BaseLoader
 
     public function addObjectsToCache($objects)
     {
-//        var_dump('Adding to cache');
-//        var_dump(array_keys($objects));
         $this->objectsCache = array_merge($this->objectsCache, $objects);
     }
 
     public function addTemplatesToCache($templates)
     {
-//        var_dump('Adding templates to cache');
-//        var_dump(array_keys($templates));
         $this->templates = array_merge($this->templates, $templates);
     }
 
@@ -67,29 +63,12 @@ class Yaml extends BaseLoader
 
         return $this;
     }
-//
-//    /**
-//     * {@inheritDoc}
-//     */
-//    public function load($dataOrFile)
-//    {
-//        $this->templates = $this->templatesCache;
-//
-//        $objects = parent::load($dataOrFile);
-//
-//        $this->ddObjectsToCache($this->references);
-//        $this->ddTemplatesToCache($this->templates);
-//
-//        return $objects;
-//    }
 
     /**
      * {@inheritDoc}
      */
     public function getReference($name, $property = null)
     {
-//        var_dump('Looking for:');
-//        var_dump($name);
         if (isset($this->objectsCache[$name])) {
             try {
                 $reference = $this->entityManager->merge($this->objectsCache[$name]);
