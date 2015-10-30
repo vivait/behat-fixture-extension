@@ -41,9 +41,9 @@ class FixtureContext extends AliceContext
             }
 
             if (!$useCache) {
-                $this->loadFixture($loader, $fixture);
+                $objects = $this->loadFixture($loader, $fixture);
 
-                $loader->addObjectsToCache(self::$fixtureCache[$id]['objects']);
+                $loader->addObjectsToCache($objects);
             }
             else if (isset(self::$fixtureCache[$id])) {
                 // Reload the caches
