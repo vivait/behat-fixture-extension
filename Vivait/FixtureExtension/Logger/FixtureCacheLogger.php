@@ -46,25 +46,20 @@ class FixtureCacheLogger implements SQLLogger
         }
 
         if ($this->isLoggable($sql)) {
-//            if (strpos($sql, 'INSERT INTO queue_user3') !== false) {
-//                var_dump('Found trouble query');
-//                var_dump($params);
-//                var_dump($types);
-//            }
-
             if (!empty($params)) {
                 $newParams = [];
                 foreach ($params as $key => $param) {
-                    $type = Type::getType($types[$key]);
-                    $newParams[] = $type->convertToDatabaseValue($param, $this->dbPlatform);
+                    if (isset($types[$key])) {
+                        $type = Type::getType($types[$key]);
+                        $newParams[] = $type->convertToDatabaseValue($param, $this->dbPlatform);
+                    }
+                    else {
+                        $newParams[] = $param;
+                    }
                 }
 
                 $params = $newParams;
             }
-
-//            if (strpos($sql, 'INSERT INTO queue_user3') !== false) {
-//                var_dump($params);
-//            }
 
             $this->queries[] = array('sql' => $sql, 'params' => $params);
         }
