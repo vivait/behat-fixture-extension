@@ -19,65 +19,48 @@ class FixtureContext extends AliceContext
      */
     protected function loadFixtures($loader, $fixtures, $files)
     {
-        if (!$this->getParameter('vivait_fixtures.cache_sql')) {
-            parent::loadFixtures($loader, $fixtures, $files);
-            return;
-        }
+//        if (!$this->getParameter('vivait_fixtures.cache_sql')) {
+//            parent::loadFixtures($loader, $fixtures, $files);
+//            return;
+//        }
 
         /** @var EntityManager $entityManager */
         $entityManager = $this->getEntityManager();
-        $connection = $entityManager
-            ->getConnection();
-        $configuration = $connection
-            ->getConfiguration();
 
         $useCache = $this->getParameter('vivait_fixtures.cache_sql') ? true : false;
 
-        $loader->setEntityManager($entityManager);
+//        $loader->setEntityManager($entityManager);
+
+//        $objects = $loader->load($this->filterFixtures($fixtures, $files);
+
+        $objects = $this->loadFixturesInToMemory($loader, $fixtures, $files, $useCache);
+
+        $this->persistEntities($objects);
+
+        if (!$useCache) {
+            $this->flushEntities($objects);
+            return;
+        }
 
         foreach ($fixtures as $id => $fixture) {
             if (!in_array($id, $files)) {
                 continue;
             }
 
-            if (!$useCache) {
-                $objects = $this->loadFixture($loader, $fixture);
-
-                $loader->addObjectsToCache($objects);
+            if (!isset(self::$fixtureCache[$id])) {
+                throw new \LogicException(sprintf('Un-warmed up fixture found "%s"', $id));
             }
-            else if (isset(self::$fixtureCache[$id])) {
-                // Reload the caches
-                $loader->addObjectsToCache(self::$fixtureCache[$id]['objects']);
-                $loader->addTemplatesToCache(self::$fixtureCache[$id]['templates']);
 
+            $fixtureCache = &self::$fixtureCache[$id];
+
+            if (!empty($fixtureCache['sql'])) {
                 $this->runCachedSQL($id);
+
+//                // Reload the caches
+//                $loader->addObjectsToCache(self::$fixtureCache[$id]['objects']);
+//                $loader->addTemplatesToCache(self::$fixtureCache[$id]['templates']);
             } else {
-                $logger = new FixtureCacheLogger(
-                    $connection->getDatabasePlatform(),
-                    array(
-                        FixtureCacheLogger::QUERY_TYPE_UPDATE,
-                        FixtureCacheLogger::QUERY_TYPE_INSERT,
-                        FixtureCacheLogger::QUERY_TYPE_DELETE
-                    )
-                );
-
-                $oldLogger = $configuration->getSQLLogger();
-
-                try {
-                    // Start the caching logger
-                    $configuration->setSQLLogger($logger);
-
-                    $objects = $this->loadFixture($loader, $fixture);
-
-                    // Store a cache of the fixture
-                    self::$fixtureCache[$id] = [
-                        'objects' => $objects,
-                        'templates' => $loader->getTemplates(),
-                        'sql' => $logger->queries
-                    ];
-                } finally {
-                    $configuration->setSQLLogger($oldLogger);
-                }
+                $fixtureCache['sql'] = $this->persistEntitiesAndCacheSql($fixtureCache['objects']);
             }
         }
 
@@ -129,24 +112,109 @@ class FixtureContext extends AliceContext
     }
 
     /**
-     * @param Yaml $loader
-     * @param string $fixture
-     * @return array
+     * @param $objects
      */
-    protected function loadFixture($loader, $fixture)
+    protected function persistEntities($objects)
     {
         /** @var EntityManager $entityManager */
         $entityManager = $this->getEntityManager();
 
-        // Load the fixture and merge it with the cache
-        $objects = $loader->load($fixture);
-
-        foreach ($objects as $key => $entity) {
+        foreach ($objects as $entity) {
             $entityManager->persist($entity);
         }
+    }
 
-        $entityManager->flush();
+    /**
+     * @param $objects
+     */
+    protected function flushEntities($objects)
+    {
+        /** @var EntityManager $entityManager */
+        $entityManager = $this->getEntityManager();
+
+        $entityManager->flush($objects);
+    }
+
+    /**
+     * @param $fixtures
+     * @param $files
+     * @return array
+     */
+    protected function filterFixtures($fixtures, $files)
+    {
+        $fixtureFiles = [];
+
+        // Warm the object caches
+        foreach ($fixtures as $id => $fixture) {
+            if (!in_array($id, $files)) {
+                continue;
+            }
+
+            $fixtureFiles[] = $fixtures;
+        }
+
+        return $fixtureFiles;
+    }
+
+    /**
+     * @param $loader
+     * @param $fixtures
+     * @param $files
+     * @param $useCache
+     * @return array
+     */
+    protected function loadFixturesInToMemory($loader, $fixtures, $files, $useCache)
+    {
+        $objects = [];
+
+        // Warm the object caches
+        foreach ($fixtures as $id => $fixture) {
+            if (!in_array($id, $files)) {
+                continue;
+            }
+
+            if (isset(self::$fixtureCache[$id]) && $useCache) {
+                $objects = array_merge($objects, self::$fixtureCache[$id]['objects']);
+            } else {
+                $fixtureObjects = $loader->load($fixture);
+                $objects = array_merge($objects, $fixtureObjects);
+
+                self::$fixtureCache[$id]['objects'] = $fixtureObjects;
+            }
+        }
 
         return $objects;
+    }
+
+    protected function persistEntitiesAndCacheSql($objects)
+    {
+        /** @var EntityManager $entityManager */
+        $entityManager = $this->getEntityManager();
+        $connection = $entityManager
+            ->getConnection();
+        $configuration = $connection
+            ->getConfiguration();
+
+        $logger = new FixtureCacheLogger(
+            $connection->getDatabasePlatform(),
+            array(
+                FixtureCacheLogger::QUERY_TYPE_UPDATE,
+                FixtureCacheLogger::QUERY_TYPE_INSERT,
+                FixtureCacheLogger::QUERY_TYPE_DELETE
+            )
+        );
+
+        $oldLogger = $configuration->getSQLLogger();
+
+        try {
+            // Start the caching logger
+            $configuration->setSQLLogger($logger);
+
+            $this->flushEntities($objects);
+
+            return $logger->queries;
+        } finally {
+            $configuration->setSQLLogger($oldLogger);
+        }
     }
 }

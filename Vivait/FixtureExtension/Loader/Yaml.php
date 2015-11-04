@@ -4,33 +4,24 @@ namespace Vivait\FixtureExtension\Loader;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Knp\FriendlyContexts\Alice\ProviderResolver;
-use Nelmio\Alice\Loader\Yaml as BaseLoader;
+use Nelmio\Alice\Loader\Base as BaseLoader;
+use Symfony\Component\Yaml\Yaml as YamlParser;
 
 class Yaml extends BaseLoader
 {
     /**
      * @var array
      */
-    private $objectsCache = [];
+    private $processedFiles = [];
 
     /**
-     * @var EntityManagerInterface
+     * @var array
      */
-    private $entityManager;
+    private $objectsCache = [];
 
     public function __construct($locale, ProviderResolver $providers)
     {
         parent::__construct($locale, $providers->all());
-    }
-
-    public function addObjectsToCache($objects)
-    {
-        $this->objectsCache = array_merge($this->objectsCache, $objects);
-    }
-
-    public function addTemplatesToCache($templates)
-    {
-        $this->templates = array_merge($this->templates, $templates);
     }
 
     public function getCache()
@@ -43,67 +34,103 @@ class Yaml extends BaseLoader
         $this->objectsCache = [];
     }
 
-    /**
-     * Gets entityManager
-     * @return mixed
-     */
-    public function getEntityManager()
+    protected function createInstance($class, $name, array &$data)
     {
-        return $this->entityManager;
-    }
-
-    /**
-     * Sets entityManager
-     * @param EntityManagerInterface $entityManager
-     * @return $this
-     */
-    public function setEntityManager(EntityManagerInterface $entityManager)
-    {
-        $this->entityManager = $entityManager;
-
-        return $this;
+        $instance = parent::createInstance($class, $name, $data);
+        $this->objectsCache[] = [ $data, $instance ];
+        return $instance;
     }
 
     /**
      * {@inheritDoc}
      */
-    public function getReference($name, $property = null)
+    public function load($file)
     {
-        if (isset($this->objectsCache[$name])) {
-            try {
-                $reference = $this->entityManager->merge($this->objectsCache[$name]);
-            }
-            catch (\Exception $e) {
-                var_dump($e->getMessage());
-                var_dump($this->objectsCache[$name]);
-                exit;
-            }
-        }
-        else if (isset($this->references[$name])) {
-            $reference = $this->references[$name];
-        }
-        else {
-            throw new \UnexpectedValueException('Reference '.$name.' is not defined');
-        }
+        $data = $this->parse($file);
+        return parent::load($data);
+    }
 
-        if ($property !== null) {
-            if (property_exists($reference, $property)) {
-                $prop = new \ReflectionProperty($reference, $property);
-
-                if ($prop->isPublic()) {
-                    return $reference->{$property};
-                }
-            }
-
-            $getter = 'get'.ucfirst($property);
-            if (method_exists($reference, $getter) && is_callable(array($reference, $getter))) {
-                return $reference->$getter();
-            }
-
-            throw new \UnexpectedValueException('Property '.$property.' is not defined for reference '.$name);
+    /**
+     * @param string $file
+     * @return array
+     * @throws \UnexpectedValueException
+     */
+    public function parse($file)
+    {
+        // We've already processed this file
+        if (isset($this->processedFiles[$file])) {
+            return [];
         }
 
-        return $reference;
+        ob_start();
+        $loader = $this;
+
+        if (!file_exists($file)) {
+            throw new \InvalidArgumentException('The file could not be found: '.$file);
+        }
+
+        // isolates the file from current context variables and gives
+        // it access to the $loader object to inline php blocks if needed
+        $includeWrapper = function () use ($file, $loader) {
+            return require $file;
+        };
+        $data = $includeWrapper();
+
+        if (1 === $data) {
+            // include didn't return data but included correctly, parse it as yaml
+            $yaml = ob_get_clean();
+            $data = YamlParser::parse($yaml);
+        } else {
+            // make sure to clean up if theres a failure
+            ob_end_clean();
+        }
+
+        if (!is_array($data)) {
+            throw new \UnexpectedValueException('Yaml files must parse to an array of data');
+        }
+
+        $this->processedFiles[$file] = true;
+
+        $data = $this->processIncludes($data, $file);
+
+        return $data;
+    }
+
+    /**
+     * @param array $data
+     * @param string $file
+     * @return mixed
+     */
+    private function processIncludes($data, $file)
+    {
+        if (isset($data['include'])) {
+            foreach ($data['include'] as $include) {
+                $includeFile = dirname($file) . DIRECTORY_SEPARATOR . $include;
+                $includeData = $this->parse($includeFile);
+                $data = $this->mergeIncludeData($data, $includeData);
+            }
+        }
+
+        unset($data['include']);
+
+        return $data;
+    }
+
+    /**
+     * @param array $data
+     * @param array $includeData
+     */
+    private function mergeIncludeData($data, $includeData)
+    {
+        foreach ($includeData as $class => $fixtures) {
+            if (isset($data[$class])) {
+                $data[$class] = array_merge($fixtures, $data[$class]);
+            } else {
+                $data[$class] = $fixtures;
+            }
+        }
+
+        return $data;
     }
 
     public function getTemplates() {
