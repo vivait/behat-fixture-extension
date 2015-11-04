@@ -35,33 +35,15 @@ class FixtureCacheLogger implements SQLLogger
      */
     public function startQuery($sql, array $params = null, array $types = null)
     {
-        if ($sql === '"START TRANSACTION"') {
-            $sql = 'START TRANSACTION';
-        }
-        else if ($sql === '"SAVEPOINT"') {
-            $sql = 'SAVEPOINT';
-        }
-        else if ($sql === '"COMMIT"') {
-            $sql = 'COMMIT';
-        }
+        $sql = $this->fixDoctrineSql($sql);
 
         if ($this->isLoggable($sql)) {
-            if (!empty($params)) {
-                $newParams = [];
-                foreach ($params as $key => $param) {
-                    if (isset($types[$key])) {
-                        $type = Type::getType($types[$key]);
-                        $newParams[] = $type->convertToDatabaseValue($param, $this->dbPlatform);
-                    }
-                    else {
-                        $newParams[] = $param;
-                    }
-                }
+            $params = $this->resolveParamTypes($params, $types);
 
-                $params = $newParams;
-            }
-
-            $this->queries[] = array('sql' => $sql, 'params' => $params);
+            $this->queries[] = array(
+                'sql' => $sql,
+                'params' => $params
+            );
         }
     }
 
@@ -75,11 +57,10 @@ class FixtureCacheLogger implements SQLLogger
 
     private function isLoggable($sql)
     {
-//        return true;
-
         if (empty($this->loggedQueryTypes)) {
             return true;
         }
+
         foreach ($this->loggedQueryTypes as $validType) {
             if (strpos($sql, $validType) === 0) {
                 return true;
@@ -87,5 +68,54 @@ class FixtureCacheLogger implements SQLLogger
         }
 
         return false;
+    }
+
+    /**
+     * @param $sql
+     * @return string
+     */
+    protected function fixDoctrineSql($sql)
+    {
+        if ($sql === '"START TRANSACTION"') {
+            $sql = 'START TRANSACTION';
+
+            return $sql;
+        } else if ($sql === '"SAVEPOINT"') {
+            $sql = 'SAVEPOINT';
+
+            return $sql;
+        } else if ($sql === '"COMMIT"') {
+            $sql = 'COMMIT';
+
+            return $sql;
+        }
+        {
+            return $sql;
+        }
+    }
+
+    /**
+     * @param array $params
+     * @param array $types
+     * @return array
+     * @throws \Doctrine\DBAL\DBALException
+     */
+    protected function resolveParamTypes(array $params, array $types)
+    {
+        if (empty($params)) {
+            return $params;
+        }
+
+        $newParams = [];
+        foreach ($params as $key => $param) {
+            if (isset($types[$key])) {
+                $type = Type::getType($types[$key]);
+                $newParams[] = $type->convertToDatabaseValue($param, $this->dbPlatform);
+            } else {
+                $newParams[] = $param;
+            }
+        }
+
+        return $newParams;
     }
 }
