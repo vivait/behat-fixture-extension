@@ -8,15 +8,20 @@ use Doctrine\DBAL\Platforms\MySqlPlatform;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\Tools\SchemaTool;
 use Knp\FriendlyContexts\Context\Context;
+use Vivait\FixtureExtension\Purger\CachedPurger;
 
 class ResetEmContext extends Context
 {
-    private $purger;
+    /**
+     * @var ORMPurger
+     */
+    private        $purger;
+
     private static $hasSchema = false;
 
     function __construct(ORMPurger $purger = null)
     {
-        $this->purger = $purger ?: new ORMPurger();
+        $this->purger = $purger ?: new CachedPurger(new ORMPurger());
     }
 
     /**
@@ -37,7 +42,7 @@ class ResetEmContext extends Context
 
                 $this->preparePurger($entityManager);
 
-                $this->purger->purge();
+                $this->purge($entityManager);
 
                 $this->resetPurger($entityManager);
             }
@@ -96,5 +101,10 @@ class ResetEmContext extends Context
         if ($cacheDriver) {
             $cacheDriver->deleteAll();
         }
+    }
+
+    private function purge(EntityManager $entityManager)
+    {
+        $this->purger->purge();
     }
 }
