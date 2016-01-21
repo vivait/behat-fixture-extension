@@ -24,10 +24,13 @@ class FixtureCacheLogger implements SQLLogger
      */
     public $queries = array();
 
-    public function __construct(AbstractPlatform $dbPlatform, array $loggedQueryTypes = array())
+    private $flattenTypes = true;
+
+    public function __construct(AbstractPlatform $dbPlatform, array $loggedQueryTypes = array(), $flattenTypes = true)
     {
         $this->dbPlatform = $dbPlatform;
         $this->loggedQueryTypes = $loggedQueryTypes;
+        $this->flattenTypes = $flattenTypes;
     }
 
     /**
@@ -38,11 +41,14 @@ class FixtureCacheLogger implements SQLLogger
         $sql = $this->fixDoctrineSql($sql);
 
         if ($this->isLoggable($sql)) {
-            $params = $this->resolveParamTypes($params, $types);
+            if ($this->flattenTypes) {
+                $params = $this->resolveParamTypes($params, $types);
+            }
 
             $this->queries[] = array(
                 'sql' => $sql,
-                'params' => $params
+                'params' => $params,
+                'types' => $types
             );
         }
     }
@@ -89,7 +95,7 @@ class FixtureCacheLogger implements SQLLogger
 
             return $sql;
         }
-        {
+        else {
             return $sql;
         }
     }
