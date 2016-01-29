@@ -4,7 +4,7 @@ namespace Vivait\FixtureExtension\Loader;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Knp\FriendlyContexts\Alice\ProviderResolver;
-use Nelmio\Alice\Loader\Base as BaseLoader;
+use Nelmio\Alice\Fixtures\Loader as BaseLoader;
 use Symfony\Component\Yaml\Yaml as YamlParser;
 
 class Yaml extends BaseLoader
@@ -34,11 +34,20 @@ class Yaml extends BaseLoader
         $this->objectsCache = [];
     }
 
-    protected function createInstance($class, $name, array &$data)
+    /**
+     * {@inheritdoc}
+     */
+    protected function instantiateFixtures(array $fixtures)
     {
-        $instance = parent::createInstance($class, $name, $data);
-        $this->objectsCache[] = [ $data, $instance ];
-        return $instance;
+        parent::instantiateFixtures($fixtures);
+
+        foreach ($fixtures as $fixture) {
+            $spec = array_map(function ($property) {
+                return $property->getValue();
+            }, $fixture->getProperties());
+
+            $this->objectsCache[] = [ $spec, $this->objects->get($fixture->getName()) ];
+        }
     }
 
     /**

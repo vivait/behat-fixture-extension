@@ -8,7 +8,7 @@ class LoaderCompilerPass implements CompilerPassInterface
 {
     public function process(ContainerBuilder $container)
     {
-        $definition = $container->getDefinition('friendly.alice.loader.yaml');
+        $definition = $container->getDefinition('friendly.alice.fixtures.loader');
 
         $definition->setClass('Vivait\FixtureExtension\Loader\Yaml');
     }
